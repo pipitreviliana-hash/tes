@@ -1,0 +1,60 @@
+{
+   "owner": "6285xxxxxxxx",
+   "owner_name": "Wildan Izzudin",
+   "database": "data",
+   "limit": 10,
+   "limit_game": 50,
+   "multiplier": 89,
+   "min_reward": 100000,
+   "max_reward": 500000,
+   "ram_limit": "1.5gb",
+   "max_upload": 80,
+   "max_upload_free": 25,
+   "cooldown": 3,
+   "timer": 180000,
+   "timeout": 1800000,
+   "permanent_threshold": 3,
+   "notify_threshold": 4,
+   "banned_threshold": 5,
+   "blocks": ["994", "221", "212"],
+   "evaluate_chars": ["=>", "~>", "<", ">", "$", "%"],
+   "pairing": {
+      "state": true,
+      "number": 6282258694977,
+      "browser": ["Mac OS", "Chrome", "139.0.7258.164"],
+      "version": [2, 3000, 1029621748],
+      "code": "NEOXRBOT"
+   },
+   "bot_hosting": {
+      "name": "Wapify",
+      "currency": "IDR",
+      "slot": 5,
+      "session_dir": "sessions",
+      "host": "127.0.0.1",
+      "price_list": [{
+         "code": "trial",
+         "name": "Trial",
+         "price": 0,
+         "owner": 1,
+         "response": 5000,
+         "customize": true,
+         "days": 7
+      }, {
+         "code": "pro",
+         "name": "Pro",
+         "price": 35000,
+         "owner": 3,
+         "response": 100000,
+         "customize": true,
+         "days": 15
+      }, {
+         "code": "turbo",
+         "name": "Turbo",
+         "price": 50000,
+         "owner": 5,
+         "response": 150000,
+         "customize": true,
+         "days": 30
+      }]
+   }
+}
