@@ -44,6 +44,73 @@
                </div>
             </div>
 
+            <div v-if="settings && settings.webhook" class="content-card rounded-3 mb-4">
+               <div class="card-body-custom">
+                  <div class="row g-0">
+                     <div class="col-md-4 pe-md-4">
+                        <h5 class="main-title mb-2">Webhook</h5>
+
+                        <div class="switch-wrapper mb-3">
+                           <label for="webhook-active" class="switch-label">Enable Webhook</label>
+                           <div class="form-check form-switch status-switch">
+                              <input class="form-check-input" type="checkbox" role="switch" id="webhook-active"
+                                 v-model="settings.webhook.active">
+                           </div>
+                        </div>
+
+                        <div v-if="settings.webhook.active" class="status-box active">
+                           <i class="bi bi-check-circle-fill status-icon"></i>
+                           <div>
+                              <div class="status-title">Webhook is Active</div>
+                              <p class="status-text">Real-time event data will be sent to your URL.</p>
+                           </div>
+                        </div>
+                        <div v-else class="status-box inactive">
+                           <i class="bi bi-x-circle-fill status-icon"></i>
+                           <div>
+                              <div class="status-title">Webhook is Inactive</div>
+                              <p class="status-text">No event data is being sent. Turn on to activate.</p>
+                           </div>
+                        </div>
+                     </div>
+
+                     <div class="col-md-8 pt-4 pt-md-0 ps-md-4 border-start-md">
+                        <fieldset :disabled="!settings.webhook.active">
+                           <div class="mb-3">
+                              <label for="webhook-url" class="form-label">Webhook URL</label>
+                              <div class="input-group">
+                                 <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
+                                 <input type="url" id="webhook-url" class="form-control"
+                                    :class="{ 'is-invalid': urlError }" v-model="settings.webhook.url"
+                                    placeholder="https://neoxr.app.n8n.cloud/webhook/xxxxx">
+                              </div>
+                              <div v-if="urlError" class="invalid-feedback-custom">{{ urlError }}</div>
+                           </div>
+
+                           <div class="mb-3">
+                              <label for="webhook-method" class="form-label">Method</label>
+                              <div class="input-group">
+                                 <span class="input-group-text"><i class="bi bi-box-arrow-in-down-left"></i></span>
+                                 <select id="webhook-method" class="form-select" v-model="settings.webhook.method">
+                                    <option value="post">POST</option>
+                                    <option value="get">GET</option>
+                                 </select>
+                              </div>
+                           </div>
+                        </fieldset>
+
+                        <div class="text-end mt-4">
+                           <button class="btn btn-custom-accent px-4" @click="saveWebhookSettings"
+                              :disabled="isSavingWebhook || !!urlError || (settings.webhook.active && !settings.webhook.url)">
+                              <span v-if="isSavingWebhook" class="spinner-border spinner-border-sm me-2"></span>
+                              {{ isSavingWebhook ? 'Saving...' : 'Save Webhook' }}
+                           </button>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+
             <div class="content-card rounded-3 mb-4">
                <div class="card-header-custom">
                   <h5 class="main-title mb-0">Main Settings</h5>
@@ -119,7 +186,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import Swal from 'sweetalert2'
 import { useAuth } from '@/composables/useAuth'
 
@@ -128,18 +195,38 @@ const { $api } = useNuxtApp()
 const config = useRuntimeConfig()
 useHead({ title: 'Settings', titleTemplate: `%s - ${config.public.title}` })
 
-const settings = ref({})
+const settings = ref({ webhook: { url: '', method: 'post', active: false } })
 const setupData = ref(null)
 const isLoading = ref(true)
 const isError = ref(false)
 const isSavingGeneral = ref(false)
 const isSavingSecurity = ref(false)
+const isSavingWebhook = ref(false)
+const urlError = ref('')
 
 const localPrefixInput = ref('')
 const localOwnersInput = ref('')
 const localModeratorsInput = ref('')
 const localToxicInput = ref('')
 const localOperatorsInput = ref('')
+
+watch(() => settings.value.webhook?.url, (newUrl) => {
+   if (settings.value.webhook && !newUrl) {
+      urlError.value = ''
+      return
+   }
+   const urlPattern = new RegExp('^(https?:\\/\\/)?' +
+      '((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|' +
+      '((\\d{1,3}\\.){3}\\d{1,3}))' +
+      '(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*' +
+      '(\\?[;&a-z\\d%_.~+=-]*)?' +
+      '(\\#[-a-z\\d_]*)?$', 'i');
+   if (!urlPattern.test(newUrl)) {
+      urlError.value = 'Please enter a valid URL format.'
+   } else {
+      urlError.value = ''
+   }
+});
 
 const booleanSettingKeys = computed(() => {
    if (!settings.value) return []
@@ -172,6 +259,9 @@ const fetchSettings = async () => {
       const response = await $api('/data/setting')
       if (response.status && response.data) {
          settings.value = response.data
+         if (typeof settings.value.webhook === 'undefined' || settings.value.webhook === null) {
+            settings.value.webhook = { url: '', method: 'post', active: false }
+         }
       } else {
          throw new Error("Failed to fetch settings data")
       }
@@ -196,6 +286,34 @@ const fetchSetupData = async () => {
    }
 }
 
+const saveWebhookSettings = async () => {
+   if (urlError.value) {
+      Swal.fire({ icon: 'error', title: 'Invalid URL', text: 'Please fix the URL format before saving.' })
+      return
+   }
+   if (settings.value.webhook.active && !settings.value.webhook.url) {
+      Swal.fire({ icon: 'warning', title: 'URL Required', text: 'Webhook URL cannot be empty when the feature is active.' })
+      return
+   }
+   isSavingWebhook.value = true
+   try {
+      const response = await $api('/action/update-webhook', {
+         method: 'POST',
+         body: { data: settings.value.webhook }
+      })
+      if (response.status) {
+         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Webhook settings saved!', showConfirmButton: false, timer: 3000, timerProgressBar: true })
+      } else {
+         throw new Error(response.message || 'Failed to save webhook settings.')
+      }
+   } catch (error) {
+      console.error('Error saving webhook settings:', error)
+      Swal.fire({ icon: 'error', title: 'Save Failed', text: error?.data?.message || error.message || 'An unexpected error occurred.' })
+   } finally {
+      isSavingWebhook.value = false
+   }
+}
+
 const saveGeneralSettings = async () => {
    isSavingGeneral.value = true
    try {
@@ -211,7 +329,7 @@ const saveGeneralSettings = async () => {
       }
    } catch (error) {
       console.error('Error saving settings:', error)
-      Swal.fire({ icon: 'error', title: 'Save Failed', text: error.message || 'An unexpected error occurred.' })
+      Swal.fire({ icon: 'error', title: 'Save Failed', text: error?.data?.message || error.message || 'An unexpected error occurred.' })
    } finally {
       isSavingGeneral.value = false
    }
@@ -219,8 +337,8 @@ const saveGeneralSettings = async () => {
 
 const saveSecuritySettings = async () => {
    if (!setupData.value) return
-   if (!setupData.value.username || !setupData.value.password) {
-      Swal.fire({ icon: 'warning', title: 'Validation Error', text: 'Admin username and password cannot be empty.' })
+   if (!setupData.value.username) {
+      Swal.fire({ icon: 'warning', title: 'Validation Error', text: 'Admin username cannot be empty.' })
       return
    }
    isSavingSecurity.value = true
@@ -236,7 +354,7 @@ const saveSecuritySettings = async () => {
       }
    } catch (error) {
       console.error('Error saving security settings:', error)
-      Swal.fire({ icon: 'error', title: 'Save Failed', text: error.message || 'An unexpected error occurred.' })
+      Swal.fire({ icon: 'error', title: 'Save Failed', text: error?.data?.message || error.message || 'An unexpected error occurred.' })
    } finally {
       isSavingSecurity.value = false
    }
@@ -272,5 +390,140 @@ onMounted(async () => {
 
 body.light-mode .form-text {
    color: #6c757d;
+}
+
+.status-box {
+   display: flex;
+   align-items: flex-start;
+   padding: 1rem;
+   border-radius: 0.5rem;
+   border: 1px solid transparent;
+   transition: background-color 0.3s ease;
+}
+
+.status-box.active {
+   background-color: rgba(25, 135, 84, 0.1);
+   border-color: rgba(25, 135, 84, 0.2);
+}
+
+.status-box.inactive {
+   background-color: rgba(108, 117, 125, 0.1);
+   border-color: rgba(108, 117, 125, 0.2);
+}
+
+.status-icon {
+   font-size: 1.5rem;
+   margin-right: 0.75rem;
+   line-height: 1.2;
+}
+
+.status-box.active .status-icon {
+   color: #198754;
+}
+
+.status-box.inactive .status-icon {
+   color: #6c757d;
+}
+
+.status-title {
+   font-weight: 600;
+   margin-bottom: 0.25rem;
+   color: var(--dark-main-text-color);
+}
+
+body.light-mode .status-title {
+   color: #212529;
+}
+
+.status-text {
+   font-size: 0.85rem;
+   margin: 0;
+   color: var(--dark-secondary-text-color);
+}
+
+.status-switch {
+   position: relative;
+   bottom: 3px
+}
+
+body.light-mode .status-text {
+   color: #495057;
+}
+
+.switch-wrapper {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   background-color: var(--dark-card-hover);
+   padding: 0.75rem 1rem;
+   border-radius: 0.5rem;
+   border: 1px solid var(--dark-border-color);
+}
+
+body.light-mode .switch-wrapper {
+   background-color: #f8f9fa;
+   border-color: #e9ecef;
+}
+
+.switch-label {
+   font-weight: 500;
+   margin-bottom: 0;
+   cursor: pointer;
+}
+
+.switch-wrapper .form-check.form-switch {
+   padding-left: 0;
+   margin-bottom: 0;
+}
+
+.switch-wrapper .form-check-input {
+   width: 2.5em;
+   height: 1.25em;
+   cursor: pointer;
+}
+
+.form-control.is-invalid {
+   border-color: #dc3545;
+}
+
+.invalid-feedback-custom {
+   display: block;
+   width: 100%;
+   margin-top: 0.25rem;
+   font-size: .875em;
+   color: #dc3545;
+}
+
+.input-group-text {
+   background-color: transparent;
+   border-right: none;
+   border-color: var(--dark-border-color);
+   color: var(--dark-secondary-text-color);
+}
+
+body.light-mode .input-group-text {
+   background-color: transparent;
+   border-right: none;
+   border-color: #dee2e6;
+   color: #495057;
+}
+
+fieldset:disabled {
+   opacity: 0.6;
+}
+
+fieldset:disabled input,
+fieldset:disabled select {
+   pointer-events: none;
+}
+
+@media (min-width: 768px) {
+   .border-start-md {
+      border-left: 1px solid var(--dark-border-color);
+   }
+
+   body.light-mode .border-start-md {
+      border-left: 1px solid #dee2e6;
+   }
 }
 </style>
