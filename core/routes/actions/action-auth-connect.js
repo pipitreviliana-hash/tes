@@ -37,8 +37,12 @@ export const routes = {
             ownerJid = jid
          }
 
-         const isRegistered = global.db.bots?.find(v =>
-            v.connector?.sessionOpts?.number === number || v.connector?.sessionOpts?.owner === toJid(owner)
+         const isRegistered = global.db?.bots?.some(v =>
+            v?.is_connected &&
+            (
+               v?.connector?.sessionOpts?.number === number ||
+               v?.connector?.sessionOpts?.owner === toJid(owner)
+            )
          )
 
          if (isRegistered)
@@ -74,7 +78,7 @@ export const routes = {
             })
 
 
-         if (global.db?.bots?.filter(v => v.is_connected).length >= Config.bot_hosting.slot)
+         if (global.db?.bots?.length >= Config.bot_hosting.slot)
             return res.status(403).json({
                creator: global.creator,
                status: false,

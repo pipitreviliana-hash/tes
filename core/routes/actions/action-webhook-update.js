@@ -1,9 +1,10 @@
-import { Config, Utils } from '@neoxr/wb'
+import { Utils } from '@neoxr/wb'
 import { parsingData } from '../../utils/index.js'
+import { models } from '../../../lib/system/models.js'
 
 export const routes = {
    category: 'action',
-   path: '/action/update-setting',
+   path: '/action/update-webhook',
    method: 'post',
    parameter: ['data'],
    execution: async (req, res, next) => {
@@ -28,28 +29,20 @@ export const routes = {
                message: 'Bot not found'
             })
 
-         let { bot, setting } = data
+         let { setting } = data
          if (!setting) setting = {}
-
-         if (bot && bot?.plan != 'none') {
-            const choosenPlan = Config.bot_hosting.price_list.find(v => v.code === bot.plan)
-            if (setting.owners > choosenPlan.owner) return res.status(400).json({
-               creator: global.creator,
-               status: false,
-               message: 'You have reached the maximum number of owners for this plan'
-            })
-         }
+         if (!setting.webhook) setting.webhook = models.setting.webhook
 
          for (const key in newSettings) {
-            if (Object.prototype.hasOwnProperty.call(setting, key)) {
-               setting[key] = newSettings[key]
+            if (Object.prototype.hasOwnProperty.call(setting.webhook, key)) {
+               setting.webhook[key] = newSettings[key]
             }
          }
 
          res.json({
             creator: global.creator,
             status: true,
-            message: 'Settings updated successfully'
+            message: 'Webhook updated successfully'
          })
       } catch (e) {
          Utils.printError(e)
